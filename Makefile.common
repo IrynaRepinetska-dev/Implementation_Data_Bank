@@ -1,0 +1,138 @@
+TOPDIR   = /home/iryna/Documents/WS19_20/ImplimentierungDatenBanken/HubDB_v1/HubDB_v1
+#TOPDIR   = /Users/bzcschae/workspace/dbs2/HubDB
+LIBDIR   = ${TOPDIR}/lib
+BINDIR   = ${TOPDIR}/bin
+INCLUDEDIR = ${TOPDIR}/include
+OBJDIR   = .obj
+MISCDIR  = .misc
+DEPDIR   = .dep
+TARGETS  = ${LIB_TARGETS} ${BIN_TARGETS}
+
+ifeq ($(OSTYPE),cygwin)
+SHLIBSUF = dll
+else
+ifeq ($(OSTYPE),mac)
+SHLIBSUF = dylib
+else
+SHLIBSUF = so
+endif
+endif
+
+CXX      = g++
+CC       = gcc
+DEBUG    = -g
+CPPFLAGS = -I ${INCLUDEDIR} -I. -D_REENTRANT -fPIC
+CFLAGS   = $(DEBUG) -O2
+# -pg -dr
+CXXFLAGS = $(DEBUG) -O2
+# -pg -dr
+# -Wall
+MKDIR	 = mkdir -p
+LD	     = $(CXX)
+AR	     = ar
+FLEX	 = flex
+BISON	 = yacc
+MAKE	 = make
+LDFLAGS  = -L ${LIBDIR} -llog4cxx -lapr-1 -laprutil-1 -lpthread
+ifeq ($(OSTYPE),cygwin)
+LP       = -Wl,
+endif
+# -pg
+AWK	     = awk
+COMPILE  = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
+CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS)
+
+.PHONY: distclean package clean all $(SUBDIRS)
+
+.SUFFIXES:
+.SUFFIXES: .o .lex++ .y++ .cpp .c .h
+
+all: $(BINDIR) $(LIBDIR) $(SUBDIRS) $(OBJDIR) $(MISCDIR) $(DEPDIR) $(TARGETS)
+
+clean: 	$(SUBDIRS)
+	@rm -rf ${DEPDIR} ${OBJDIR} *~ core ${MISCDIR} ${CLEAN_TARGETS} $(INCLUDEDIR)/*~ *.backup
+
+distclean: clean
+	@rm -rf ${TARGETS}
+
+package: distclean
+	@TMPFILE=/tmp/hubDB_$$LOGNAME.tar && cd .. &&\
+	tar -cf $$TMPFILE hubDB && cd hubDB && mv $$TMPFILE hubDB.tar && gzip hubDB.tar
+
+%.cpp %.o:
+	@echo "Compile $< to $@"
+	@if $(CXXCOMPILE) -MT $@ -MD -MP -MF "$(*:${OBJDIR}%=${DEPDIR}%).Tpo" -c -o $@ $<; \
+	then mv -f "$(*:${OBJDIR}%=${DEPDIR}%).Tpo" "$(*:${OBJDIR}%=${DEPDIR}%).Po"; else rm -f "$(*:${OBJDIR}%=${DEPDIR}%).Tpo"; exit 1; fi
+
+%.c %.o:
+	@echo "Compile $< to $@"
+	@if $(COMPILE) -MT $@ -MD -MP -MF "$(*:${OBJDIR}%=${DEPDIR}%).Tpo" -c -o $@ $<; \
+	then mv -f "$(*:${OBJDIR}%=${DEPDIR}%).Tpo" "$(*:${OBJDIR}%=${DEPDIR}%).Po"; else rm -f "$(*:${OBJDIR}%=${DEPDIR}%).Tpo"; exit 1; fi
+
+%.o %.a:
+	@echo "Add $? to archive $@"
+	@${AR} r $@ $?
+
+${BIN_TARGETS}:
+	@echo "Link $@ from $^ using $($(@:${BINDIR}/%=%_LIBS):%=-l%)"
+	@${LD} $^ -o $@ ${LDFLAGS} $($(@:${BINDIR}/%=%_LIBS):%=-l%)
+
+%.o %.so:
+	@echo "Build sharedlib $@ from $^"
+	@${LD} -o $@ $^ ${LDFLAGS} -shared
+
+%.o %.dll:
+	@echo "Build Windows sharedlib $@ from $^"
+	@${LD} -o $@ $^ ${LDFLAGS} -shared ${LP}--out-implib=$@.a ${LP}--export-all-symbols --enable-auto-import
+
+%.o %.dylib:
+	@echo "Build sharedlib $@ from $^"
+	@${LD} -o $@ $^ ${LDFLAGS} -shared
+
+%.Po:
+	@$(MKDIR) $(DEPDIR)
+	@echo "$(*:${DEPDIR}%=${OBJDIR}%).o : $(*:${DEPDIR}/%=%).cpp" >$@
+
+$(SUBDIRS):
+	@$(MAKE) -C $@ $(MAKECMDGOALS)
+
+$(OBJDIR):
+	@$(MKDIR) $@
+
+$(DEPDIR):
+	@$(MKDIR) $@
+
+$(MISCDIR):
+	@$(MKDIR) $@
+
+$(LIBDIR):
+	@$(MKDIR) $@
+
+$(BINDIR):
+	@$(MKDIR) $@
+
+define OBJS_template
+	$(1)_OBJS:=$$($(1)_SRCS:%.cpp=$(OBJDIR)/%.o)
+	SRCS += $$($(1)_SRCS)
+	OBJS += $$($(1)_OBJS)
+endef
+
+define DEP_template
+$(1): $$($(2)_OBJS)
+endef
+
+$(foreach t,$(BIN_TARGETS),$(eval $(call OBJS_template,$(t:${BINDIR}/%=%))))
+$(foreach t,$(BIN_TARGETS),$(eval $(call DEP_template,${t},$(t:${BINDIR}/%=%))))
+
+$(foreach t,$(LIB_TARGETS),$(eval $(call OBJS_template,$(t:${LIBDIR}/%.dll=%))))
+$(foreach t,$(LIB_TARGETS),$(eval $(call DEP_template,${t},$(t:${LIBDIR}/%.dll=%))))
+
+$(foreach t,$(LIB_TARGETS),$(eval $(call OBJS_template,$(t:${LIBDIR}/%.dylib=%))))
+$(foreach t,$(LIB_TARGETS),$(eval $(call DEP_template,${t},$(t:${LIBDIR}/%.dylib=%))))
+
+$(foreach t,$(LIB_TARGETS),$(eval $(call OBJS_template,$(t:${LIBDIR}/%.so=%))))
+$(foreach t,$(LIB_TARGETS),$(eval $(call DEP_template,${t},$(t:${LIBDIR}/%.so=%))))
+
+ifdef SRCS
+-include $(SRCS:%.cpp=$(DEPDIR)/%.Po)
+endif

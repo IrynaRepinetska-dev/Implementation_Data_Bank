@@ -1,0 +1,21 @@
+
+
+1) go to HubDB directory
+   - cd ~/<WHEREEVERYOUHAVEIT>/HubDB
+
+2) log4cxx-Bibliothek erstellen:
+   - cd tools
+   - ./build_log4cxx.sh
+   - cd ..
+
+3) you might want to patch the source according to recent versions of bison or gcc:
+    - patch -p0 < hubdb-bison3.0.4.patch
+    - patch -p0 < hubdb-gcc-6.2.1.patch
+
+3) Unpack clion.tar.gz
+
+4) In CLion: Reload the CMake Project (right click on CMakeLists.txt..)
+
+5) Use CLion to manage the project
+
+*) If you put the test sources in DBApp, you might want to uncomment the last lines in the CMakeList.txt

@@ -1,0 +1,34 @@
+diff -Nur bison-2.7.1.orig/lib/close-stream.c bison-2.7.1/lib/close-stream.c
+--- bison-2.7.1.orig/lib/close-stream.c	2013-04-08 11:18:57.000000000 +0200
++++ bison-2.7.1/lib/close-stream.c	2014-11-27 14:22:59.019812603 +0100
+@@ -55,7 +55,7 @@
+ int
+ close_stream (FILE *stream)
+ {
+-  const bool some_pending = (__fpending (stream) != 0);
++  const bool some_pending = (__fpending2 (stream) != 0);
+   const bool prev_fail = (ferror (stream) != 0);
+   const bool fclose_fail = (fclose (stream) != 0);
+ 
+diff -Nur bison-2.7.1.orig/lib/fpending.c bison-2.7.1/lib/fpending.c
+--- bison-2.7.1.orig/lib/fpending.c	2013-04-08 11:18:57.000000000 +0200
++++ bison-2.7.1/lib/fpending.c	2014-11-27 14:22:15.523813028 +0100
+@@ -24,7 +24,7 @@
+ /* Return the number of pending (aka buffered, unflushed)
+    bytes on the stream, FP, that is open for writing.  */
+ size_t
+-__fpending (FILE *fp)
++__fpending2 (FILE *fp)
+ {
+   return PENDING_OUTPUT_N_BYTES;
+ }
+diff -Nur bison-2.7.1.orig/lib/fpending.h bison-2.7.1/lib/fpending.h
+--- bison-2.7.1.orig/lib/fpending.h	2013-04-08 11:18:57.000000000 +0200
++++ bison-2.7.1/lib/fpending.h	2014-11-27 14:22:03.339813147 +0100
+@@ -26,5 +26,5 @@
+ #  include <stdio_ext.h>
+ # endif
+ #else
+-size_t __fpending (FILE *);
++size_t __fpending2 (FILE *);
+ #endif

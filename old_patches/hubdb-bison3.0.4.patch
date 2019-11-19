@@ -1,0 +1,40 @@
+Index: DBLib/DBParser.y
+===================================================================
+--- DBLib/DBParser.y	(Revision 2128)
++++ DBLib/DBParser.y	(Arbeitskopie)
+@@ -1,4 +1,8 @@
+-%pure_parser
++
++%define api.pure full
++%parse-param {yyscan_t scanner} {DBQueryMgr& queryMgr}
++%lex-param {yyscan_t scanner}
++
+ %{
+ #include <hubDB/DBParserDefs.h>
+ #include <hubDB/DBParser.h>
+@@ -14,7 +18,7 @@
+ 
+ static LoggerPtr loggerParser(Logger::getLogger("HubDB.Parser"));
+ 
+-int yylex(YYSTYPE * myyylval,yyscan_t yyscanner);
++YY_DECL ;
+ 
+ %}
+ 
+Index: include/hubDB/DBParserDefs.h
+===================================================================
+--- include/hubDB/DBParserDefs.h	(Revision 2128)
++++ include/hubDB/DBParserDefs.h	(Arbeitskopie)
+@@ -6,9 +6,9 @@
+ 
+ using namespace HubDB::Manager;
+ 
+-#define yyerror(X) extyyerror(X,queryMgr)
+-#define YYPARSE_PARAM scanner,DBQueryMgr & queryMgr
+-#define YYLEX_PARAM (yyscan_t)scanner
++typedef void* yyscan_t;
++
++#define yyerror(X,Y,Z) extyyerror(Z,queryMgr)
+ #define YY_DECL int yylex(YYSTYPE * myyylval,yyscan_t yyscanner)
+ #define YY_EXTRA_TYPE DBQueryMgr *
+ 

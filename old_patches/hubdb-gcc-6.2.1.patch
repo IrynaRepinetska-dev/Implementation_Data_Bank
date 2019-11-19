@@ -1,0 +1,86 @@
+diff -Naur ../HubDB-old/DBLib/DBQueryMgr.cpp ./DBLib/DBQueryMgr.cpp
+--- ../HubDB-old/DBLib/DBQueryMgr.cpp	2014-12-03 16:41:58.000000000 +0100
++++ ./DBLib/DBQueryMgr.cpp	2016-10-24 16:31:22.570956533 +0200
+@@ -566,7 +566,7 @@
+ 
+ 	DBTable * table[2] = {NULL,NULL};
+ 	DBRelDef * def[2] = {NULL,NULL};
+-	uint joinAttrs[2] = {-1,-1};
++	uint joinAttrs[2] = {(uint)-1,(uint)-1};
+ 	list< pair<uint,uint> > proList;
+ 	const uint left=0;
+ 	const uint right=1;
+diff -Naur ../HubDB-old/DBLib/DBRandomBufferMgr.cpp ./DBLib/DBRandomBufferMgr.cpp
+--- ../HubDB-old/DBLib/DBRandomBufferMgr.cpp	2014-07-22 21:49:24.000000000 +0200
++++ ./DBLib/DBRandomBufferMgr.cpp	2016-10-24 16:31:17.360995914 +0200
+@@ -8,7 +8,7 @@
+ LoggerPtr DBRandomBufferMgr::logger(Logger::getLogger("HubDB.Buffer.DBRandomBufferMgr"));
+ int rBMgr = DBRandomBufferMgr::registerClass();
+ 
+-extern "C" void * createDBRandomBufferMgr(int nArgs,va_list & ap);
++extern "C" void * createDBRandomBufferMgr(int nArgs,va_list ap);
+ 
+ DBRandomBufferMgr::DBRandomBufferMgr (bool doThreading,int cnt):
+ 	DBBufferMgr(doThreading,cnt),
+@@ -207,7 +207,7 @@
+ 	return pos;
+ }
+ 
+-extern "C" void * createDBRandomBufferMgr(int nArgs,va_list & ap){
++extern "C" void * createDBRandomBufferMgr(int nArgs,va_list ap){
+ 	DBRandomBufferMgr * b = NULL;
+ 	bool t;
+ 	uint c;
+diff -Naur ../HubDB-old/DBLib/DBSeqIndex.cpp ./DBLib/DBSeqIndex.cpp
+--- ../HubDB-old/DBLib/DBSeqIndex.cpp	2014-12-03 16:42:13.000000000 +0100
++++ ./DBLib/DBSeqIndex.cpp	2016-10-24 16:31:20.090975276 +0200
+@@ -13,7 +13,7 @@
+ // max this amount of entries with the some value in the index - WHEN NOT UNIQUE
+ const uint DBSeqIndex::MAX_TID_PER_ENTRY(20);
+ // Funktion bekannt machen
+-extern "C" void * createDBSeqIndex(int nArgs, va_list & ap);
++extern "C" void * createDBSeqIndex(int nArgs, va_list ap);
+ 
+ /**
+  * Ausgabe des Indexes zum Debuggen
+@@ -933,7 +933,7 @@
+  * - ModeType: READ, WRITE
+  * - bool: unique Indexattribut
+  */
+-extern "C" void * createDBSeqIndex(int nArgs, va_list & ap) {
++extern "C" void * createDBSeqIndex(int nArgs, va_list ap) {
+ 	// Genau 5 Parameter
+ 	if (nArgs != 5) {
+ 		throw DBException("Invalid number of arguments");
+diff -Naur ../HubDB-old/DBLib/DBSimpleQueryMgr.cpp ./DBLib/DBSimpleQueryMgr.cpp
+--- ../HubDB-old/DBLib/DBSimpleQueryMgr.cpp	2014-12-03 16:42:23.000000000 +0100
++++ ./DBLib/DBSimpleQueryMgr.cpp	2016-10-24 16:31:24.530941723 +0200
+@@ -12,14 +12,14 @@
+ 
+ int rSimpleQMgr = DBSimpleQueryMgr::registerClass();
+ 
+-extern "C" void * createDBSimpleQueryMgr(int nArgs,va_list & ap);
++extern "C" void * createDBSimpleQueryMgr(int nArgs,va_list ap);
+ 
+ int DBSimpleQueryMgr::registerClass(){
+ 	setClassForName("DBSimpleQueryMgr",createDBSimpleQueryMgr);
+ 	return 0;
+ }
+ 
+-extern "C" void * createDBSimpleQueryMgr(int nArgs,va_list & ap){
++extern "C" void * createDBSimpleQueryMgr(int nArgs,va_list ap){
+ 	if(nArgs!=2)
+ 		throw DBException("Invalid number of arguments");
+ 	DBServerSocket * socket = va_arg(ap,DBServerSocket *);
+diff -Naur ../HubDB-old/include/hubDB/DBTypes.h ./include/hubDB/DBTypes.h
+--- ../HubDB-old/include/hubDB/DBTypes.h	2014-12-01 06:45:40.000000000 +0100
++++ ./include/hubDB/DBTypes.h	2016-10-24 16:31:11.921037049 +0200
+@@ -285,7 +285,7 @@
+ 
+ #define TO_STR(X) HubDB::Types::toString(X)
+ 
+-        typedef void * create_t(int nArgs,va_list & ap);
++        typedef void * create_t(int nArgs,va_list ap);
+         void * getClassForName(const string & name,int nArg,...);
+         void setClassForName(const string & name, create_t * func);
+         list<string> getKnownClassNames();

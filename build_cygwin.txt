@@ -1,0 +1,34 @@
+Kompilierung der HubDB unter Cygwin (getestet unter Windows 7 mit Cygwin 1.7.33 64bit)
+--------------------------------------------------------------------------------------
+
+1) Cygwin installieren. Wichtige Pakete:
+   gcc-core, gcc-g++, make, flex, perl, unzip, patch, libapr1-devel, libaprutil1-devel, libxml2-devel
+
+2) bison, apr, apr-util erstellen:
+   - cd tools
+   - bison, apr, apr-utils entpacken
+   - patch -p0 < bison-2.7.1.patch
+   - cd bison-2.7.1 && ./configure && make && make install
+   - cd apr-1.2.12
+   - ./configure --prefix=/usr
+   - make && make install
+   - cd apr-util-1.2.12
+   - ./configure --prefix=/usr --with-apr=/usr
+   - make && make install
+
+3) log4cxx-Bibliothek erstellen:
+   - cd tools
+   - ./build_log4cxx_cygwin.sh
+
+4) Eintrag TOPDIR aus Makefile.common anpassen
+   - /home/[...]/HubDB (Pfad wie Ausgabe bei pwd)
+
+5) HubDB erstellen
+   - make OSTYPE=cygwin
+
+6) Umgebungsvariablen in jeder Shell setzen (Bash-Shell benutzen!)
+   - source setenvHubDB.sh
+
+7) Server und (danach) Client starten (2 Shells)
+   - ./bin/hubDBServer
+   - ./bin/hubDBClient

@@ -1,0 +1,10 @@
+#! /bin/sh
+#
+# Created by configure
+
+CPPFLAGS="-I/usr/local/include"; export CPPFLAGS
+LDFLAGS="-L/usr/local/lib"; export LDFLAGS
+"./configure" \
+"LDFLAGS=-L/usr/local/lib" \
+"CPPFLAGS=-I/usr/local/include" \
+"$@"

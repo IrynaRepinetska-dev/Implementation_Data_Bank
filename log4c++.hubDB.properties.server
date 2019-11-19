@@ -1,0 +1,20 @@
+log4j.rootLogger=WARN, A1
+log4j.appender.A1=org.apache.log4j.ConsoleAppender
+log4j.appender.A1.layout=org.apache.log4j.PatternLayout
+##### Only LogLevel & LogMessage
+log4j.appender.A1.layout.ConversionPattern=%5p [%t] {%F:%L} %M - %m%n
+#log4j.logger.HubDB.File=DEBUG
+#log4j.logger.HubDB.Buffer=DEBUG
+#log4j.logger.HubDB.Buffer.DBBCB=DEBUG
+#log4j.logger.HubDB.Buffer.DBBACB=INFO
+#log4j.logger.HubDB.Query=DEBUG
+#log4j.logger.HubDB.Query.DBQueryMgr=TRACE
+#log4j.logger.HubDB.SysCat=DEBUG
+#log4j.logger.HubDB.Table=DEBUG
+#log4j.logger.HubDB.Index=DEBUG
+#log4j.logger.HubDB.Index.DBSeqIndex=DEBUG
+#log4j.logger.HubDB.Index.DBMyIndex=DEBUG
+#log4j.logger.HubDB.Parser=DEBUG
+#log4j.logger.HubDB.Types=DEBUG
+#log4j.logger.HubDB.Socket=DEBUG
+#log4j.logger.HubDB.Server=INFO

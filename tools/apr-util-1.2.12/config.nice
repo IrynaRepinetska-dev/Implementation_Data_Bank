@@ -1,0 +1,8 @@
+#! /bin/sh
+#
+# Created by configure
+
+"./configure" \
+"--with-apr=../apr-1.2.12" \
+"--with-iconv=/usr/local" \
+"$@"

@@ -1,0 +1,24 @@
+Kompilierung der HubDB unter Linux
+----------------------------------
+
+1) Einloggen im Linux-Pool (gruenau2.informatik...)
+
+2) Download + Entpacken der HubDB
+   - moodle
+
+3) log4cxx-Bibliothek erstellen:
+   - cd tools
+   - ./build_log4cxx.sh
+
+4) Eintrag TOPDIR aus Makefile.common anpassen
+   - /home/[...]/HubDB (Pfad wie Ausgabe bei pwd)
+
+5) HubDB erstellen
+   - make all
+
+6) Umgebungsvariablen in jeder Shell setzen (Bash-Shell benutzen!)
+   - source setenvHubDB.sh
+
+7) Server und (danach) Client starten (2 Shells)
+   - ./bin/hubDBServer
+   - ./bin/hubDBClient
