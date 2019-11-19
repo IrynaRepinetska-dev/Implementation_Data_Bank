@@ -1,6 +1,9 @@
 #ifndef DBMYBUFFERMGR_H_
 #define DBMYBUFFERMGR_H_
 
+#include <list>
+#include <iterator>
+
 #include <hubDB/DBBufferMgr.h>
 
 namespace HubDB{
@@ -30,8 +33,12 @@ namespace HubDB{
 		private:
 			// TODO add your data structures
 
-			static LoggerPtr logger;
-		};
+            list <int> m_unfixedList;
+
+            static LoggerPtr logger;
+
+            void showlist(list <int> g);
+        };
 	}
 }
 
