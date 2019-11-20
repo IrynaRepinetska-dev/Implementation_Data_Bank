@@ -107,6 +107,18 @@ void DBMyBufferMgr::unfixBlock(DBBCB &bcb) {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
+    bcb.unlock(); // unlock (however, there can be multiple locks by different threads)
+    int i = findBlock(&bcb);
+
+    // dirty and unlocked blocks can be freed
+    if (bcb.getDirty()) {
+        delete bcbList[i];
+        bcbList[i] = NULL;  // discard block
+        freeFrame(i);  // the i-th block is freed
+    } else if (bcb.isUnlocked()) {
+        freeFrame(i);  // the i-th block is freed
+        m_unfixedList.push_front(i);
+    }
 
   //throw DBException("unfixBlock() not implemented");
 
@@ -126,6 +138,10 @@ bool DBMyBufferMgr::isBlockOfFileOpen(DBFile &file) const {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
+}
+
+
+
   throw DBException("isBlockOfFileOpen() not implemented");
 
 }
