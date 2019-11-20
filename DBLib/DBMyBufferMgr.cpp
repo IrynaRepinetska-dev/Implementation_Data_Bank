@@ -117,6 +117,7 @@ void DBMyBufferMgr::unfixBlock(DBBCB &bcb) {
         freeFrame(i);  // the i-th block is freed
     } else if (bcb.isUnlocked()) {
         freeFrame(i);  // the i-th block is freed
+        //pop from the end to find a block to replace
         m_unfixedList.push_front(i);
     }
 
