@@ -49,7 +49,7 @@ DBServerSocket *DBServerSocket::createConnection(int port) {
   int val = 1;
   setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
 
-  if (bind(socketFD, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+  if (::bind(socketFD, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
     LOG4CXX_ERROR(logger, strerror(errno));
     throw HubDB::Exception::DBSystemException(errno);
   }

@@ -25,12 +25,30 @@ extern "C" void *createDBMyBufferMgr(int nArgs, va_list ap);
  */
 DBMyBufferMgr::DBMyBufferMgr(bool doThreading, int cnt) :
         DBBufferMgr(doThreading, cnt),
-        m_unfixedList(){
+        m_unfixedList(),
+        bcbList(NULL){
   if (logger != NULL) LOG4CXX_INFO(logger, "DBMyBufferMgr()");
 
   // TODO Code hier einfügen
+    // Array of DBBCB pointers
+    bcbList = new DBBCB *[maxBlockCnt];
+    for (int i = 0; i < maxBlockCnt; i++) {
+        bcbList[i] = NULL; // initialized by NULL
+    }
+    mapSize = cnt / 32 + 1;
+    bitMap = new int[mapSize]; // use a bitmap to memorize free blocks
 
-  if (logger != NULL) LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
+    for (int i = 0; i < mapSize; ++i) {
+        bitMap[i] = 0;
+    }
+
+    // initially : all blocks are free
+    for (int i = 0; i < cnt; ++i) {
+        freeFrame(i);
+    }
+
+
+    if (logger != NULL) LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 }
 
 /**
@@ -41,6 +59,19 @@ DBMyBufferMgr::~DBMyBufferMgr() {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
+    if (bcbList != NULL) {
+        for (int i = 0; i < maxBlockCnt; ++i) {
+            if (bcbList[i] != NULL) {
+                try {
+                    flushBCBBlock(*bcbList[i]);
+                } catch (DBException &e) {}
+                delete bcbList[i];
+            }
+        }
+        delete[] bcbList;
+        //delete m_unfixedList??
+        delete[] bitMap;
+    }
 
 }
 
@@ -91,7 +122,61 @@ DBBCB * DBMyBufferMgr::fixBlock(
   LOG4CXX_DEBUG(logger,"this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
-  throw DBException("fixBlock() not implemented");
+    int i = findBlock(file, blockNo);
+
+    LOG4CXX_DEBUG(logger, "i:" + TO_STR(i));
+
+    // if the block was not found (loaded)
+    if (i == -1) {
+
+        // now, free the first free block
+        for (i = 0; i < maxBlockCnt; ++i) {
+            if (bcbList[i]== NULL) {// searches the first free frame in Buffer
+                break;
+            }
+        }
+
+        if (i == maxBlockCnt) {// no free block is available
+
+            // Verdraenungsstrategie LRU:
+            if(m_unfixedList.empty()){
+                throw DBBufferMgrException("there are no fixed Blocks ");
+            }
+            // Find index of the unfixed Block to replace --> save in i
+            i = m_unfixedList.back();
+            //remove this Block from the list of unfixed Blocks.
+            m_unfixedList.pop_back();
+           // flush the old block to disk
+            // dirty blocks are not flushed -> UNDO
+            if (!bcbList[i]->getDirty()) {
+                flushBCBBlock(*bcbList[i]);
+            }
+            delete bcbList[i];
+            // the i-th block is reserved
+            reserveFrame(i);
+
+        }
+
+        bcbList[i] = new DBBCB(file, blockNo);
+        if (read) { // read block from disk
+            fileMgr.readFileBlock(bcbList[i]->getFileBlock());
+        }
+    }
+
+    DBBCB *rc = bcbList[i];
+    if (!rc->grantAccess(mode)) { // no access given, e.g. try to access EXCLUSIVE block
+        rc = NULL;
+    } else {
+        if (isFreeFrame(i)){
+            reserveFrame(i); // the i-th block is reserved
+            m_unfixedList.remove(i);
+        }
+
+    }
+
+    LOG4CXX_DEBUG(logger, "rc: " + TO_STR(rc));
+    return rc;
+  //throw DBException("fixBlock() not implemented");
 
 }
 
@@ -108,15 +193,20 @@ void DBMyBufferMgr::unfixBlock(DBBCB &bcb) {
 
   // TODO Code hier einfügen
     bcb.unlock(); // unlock (however, there can be multiple locks by different threads)
-    int i = findBlock(&bcb);
+    int i = findBlock(&bcb); // search for position of BCBBlock in bcbList
+    if(i==-1){
+        throw DBException("This Block cannot be unfixed, because it is not in the Buffer.");
+    }
 
     // dirty and unlocked blocks can be freed
     if (bcb.getDirty()) {
         delete bcbList[i];
         bcbList[i] = NULL;  // discard block
         freeFrame(i);  // the i-th block is freed
+        m_unfixedList.remove(i);
     } else if (bcb.isUnlocked()) {
-        freeFrame(i);  // the i-th block is freed
+        freeFrame(i);
+        // the i-th block is freed
         //pop from the end to find a block to replace
         m_unfixedList.push_front(i);
     }
@@ -139,8 +229,6 @@ bool DBMyBufferMgr::isBlockOfFileOpen(DBFile &file) const {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
-}
-
 
 
   throw DBException("isBlockOfFileOpen() not implemented");

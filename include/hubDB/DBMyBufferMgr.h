@@ -29,15 +29,25 @@ namespace HubDB{
 			void unfixBlock(DBBCB & bcb);
 
 			// TODO add additional methods
+            void showlist(list <int> g);
+            int findBlock(DBFile & file,BlockNo blockNo);
+            int findBlock(DBBCB * bcb);
+            void freeFrame(int i);
+            void reserveFrame(int i);
+            bool isFreeFrame(int i);
 
 		private:
 			// TODO add your data structures
 
-            list <int> m_unfixedList;
+            list <int> m_unfixedList; // save index of unfixed Block in the array of pointers bcbList.
+
+			DBBCB **bcbList;
+			int *bitMap;
+			int mapSize;
 
             static LoggerPtr logger;
 
-            void showlist(list <int> g);
+
         };
 	}
 }
