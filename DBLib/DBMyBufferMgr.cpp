@@ -35,7 +35,7 @@ DBMyBufferMgr::DBMyBufferMgr(bool doThreading, int cnt) :
     for (int i = 0; i < maxBlockCnt; i++) {
         bcbList[i] = NULL; // initialized by NULL
     }
-    mapSize = cnt / 32 + 1;
+    mapSize = cnt / sizeof(int) + 1;
     bitMap = new int[mapSize]; // use a bitmap to memorize free blocks
 
     for (int i = 0; i < mapSize; ++i) {
@@ -71,6 +71,8 @@ DBMyBufferMgr::~DBMyBufferMgr() {
         delete[] bcbList;
         //delete m_unfixedList??
         delete[] bitMap;
+
+        m_unfixedList.~list();
     }
 
 }
@@ -153,7 +155,7 @@ DBBCB * DBMyBufferMgr::fixBlock(
             }
             delete bcbList[i];
             // the i-th block is reserved
-            reserveFrame(i);
+            //reserveFrame(i);
 
         }
 
@@ -167,10 +169,10 @@ DBBCB * DBMyBufferMgr::fixBlock(
     if (!rc->grantAccess(mode)) { // no access given, e.g. try to access EXCLUSIVE block
         rc = NULL;
     } else {
-        if (isFreeFrame(i)){
-            reserveFrame(i); // the i-th block is reserved
+       // if (isFreeFrame(i)){
+          //  reserveFrame(i); // the i-th block is reserved
             m_unfixedList.remove(i);
-        }
+        //}
 
     }
 
@@ -230,8 +232,19 @@ bool DBMyBufferMgr::isBlockOfFileOpen(DBFile &file) const {
 
   // TODO Code hier einfügen
 
+    for (int i = 0; i < maxBlockCnt; ++i) {
+        // test if the file is open, e.g. any block of the file was read into the buffer
+        if (bcbList[i] != NULL
+            && bcbList[i]->getFileBlock() == file) {
+            LOG4CXX_DEBUG(logger, "rc: true");
+            return true;
+        }
+    }
+    LOG4CXX_DEBUG(logger, "rc: false");
+    return false;
 
-  throw DBException("isBlockOfFileOpen() not implemented");
+
+  //throw DBException("isBlockOfFileOpen() not implemented");
 
 }
 
@@ -249,7 +262,25 @@ void DBMyBufferMgr::closeAllOpenBlocks(DBFile &file) {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
-  throw DBException("closeAllOpenBlocks() not implemented");
+    for (int i = 0; i < maxBlockCnt; ++i) {
+        // write unlocked blocks to disk
+        if (bcbList[i] != NULL && bcbList[i]->getFileBlock() == file) {
+            if (!bcbList[i]->isUnlocked()) {
+                throw DBBufferMgrException("can not close fileblock because it is still locked");
+            }
+            else {
+                if (!bcbList[i]->getDirty()) {
+                    flushBCBBlock(*bcbList[i]); // flush to disk
+                }
+                delete bcbList[i];
+                bcbList[i] = NULL;
+                m_unfixedList.remove(i);
+                freeFrame(i); // the i-th block is freed
+            }
+        }
+    }
+
+  //throw DBException("closeAllOpenBlocks() not implemented");
 
 }
 
@@ -262,12 +293,72 @@ int DBMyBufferMgr::registerClass() {
   return 0;
 }
 
+/**
+ * Sorgt dafür, dass sich der Block der angegebenen Datei, welcher die
+ * angegebenen Nummer hat, im Buffer befindet. Es wird ein BCB zurückgegeben,
+ * welcher den entsprechenden Frame repräsentiert. Der gepufferte Block wird
+ * entsprechend des angegebenen Sperrmodus gesperrt.
+ * Wenn für den Parameter read der Wert false übergeben wurde, darf der Block
+ * nicht in den reservierten Frame geladen werden (z.B. weil ein neuer Block
+ * geschrieben wird).
+ *
+ * Eine Implementierung erfordert eine Verdrängungsstrategie für
+ * die Verdrängung von ungenutzten Seiten (bzw. BCBs).
+ *
+ * Abstrakte Methode: Implementierung in Übung 1
+ * @param file Die geöffnete Datei
+ * @param blockNo Die Nummer des Blocks
+ * @param mode Sperrmodus
+ * @param read Wenn false übergeben wurde, darf der Block nicht in den reservierten
+ * 							Frame geladen werden
+ * @return Es wird ein BCB zurückgegeben, welcher den entsprechenden Frame repräsentiert.
+ */
+int DBMyBufferMgr::findBlock(DBFile &file, BlockNo blockNo) {
+    LOG4CXX_INFO(logger, "findBlock()");
+    int pos = -1;
+    // search if the block was read into the buffer
+    for (int i = 0; pos == -1 && i < maxBlockCnt; ++i) {
+        if (bcbList[i] != NULL &&
+            bcbList[i]->getFileBlock() == file &&
+            bcbList[i]->getFileBlock().getBlockNo() == blockNo) {
+            pos = i; // block was found at position i
+        }
+    }
+    LOG4CXX_DEBUG(logger, "pos: " + TO_STR(pos));
+    return pos;
+}
+
+
+/**
+ * Liefert die Position des BCB im Frame-Array
+ * Sequentielle Suche
+ * @param bcb
+ * @return
+ */
+int DBMyBufferMgr::findBlock(DBBCB *bcb) {
+    LOG4CXX_INFO(logger, "findBlock()");
+    int pos = -1;
+
+    // returns the position of the block
+    for (int i = 0; pos == -1 && i < maxBlockCnt; ++i) {
+        if (bcbList[i] == bcb) {
+            pos = i;
+        }
+    }
+    LOG4CXX_DEBUG(logger, "pos: " + TO_STR(pos));
+    return pos;
+}
+
 void DBMyBufferMgr::showlist(list<int> g) {
     list <int> :: iterator it;
     for(it = g.begin(); it != g.end(); ++it)
         cout << '\t' << *it;
     cout << '\n';
 }
+
+void DBMyBufferMgr::freeFrame(int i){ bitMap[i / sizeof(int)] |= (1 << (i % sizeof(int)));}
+void DBMyBufferMgr::reserveFrame(int i){ bitMap[i / sizeof(int)] &= (~(1 << (i % sizeof(int))));}
+bool DBMyBufferMgr::isFreeFrame(int i){ return (bitMap[i / sizeof(int)] & (1 << (i % sizeof(int)))) != 0 ? true : false;}
 
 /**
  * Wird aufgerufen von HubDB::Types::getClassForName von DBTypes, um DBIndex zu erstellen
@@ -290,4 +381,6 @@ extern "C" void *createDBMyBufferMgr(int nArgs, va_list ap) {
       throw DBException("Invalid number of arguments");
   }
   return b;
+
+
 }

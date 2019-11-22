@@ -1,9 +1,6 @@
 #ifndef DBMYBUFFERMGR_H_
 #define DBMYBUFFERMGR_H_
 
-#include <list>
-#include <iterator>
-
 #include <hubDB/DBBufferMgr.h>
 
 namespace HubDB{
@@ -29,7 +26,7 @@ namespace HubDB{
 			void unfixBlock(DBBCB & bcb);
 
 			// TODO add additional methods
-            void showlist(list <int> g);
+               void showlist(list <int> g);
             int findBlock(DBFile & file,BlockNo blockNo);
             int findBlock(DBBCB * bcb);
             void freeFrame(int i);
@@ -45,10 +42,8 @@ namespace HubDB{
 			int *bitMap;
 			int mapSize;
 
-            static LoggerPtr logger;
-
-
-        };
+			static LoggerPtr logger;
+		};
 	}
 }
 
