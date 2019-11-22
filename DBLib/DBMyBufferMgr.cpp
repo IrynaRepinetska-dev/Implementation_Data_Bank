@@ -7,6 +7,7 @@
 
 using namespace HubDB::Manager;
 using namespace HubDB::Exception;
+using namespace std;
 
 LoggerPtr DBMyBufferMgr::logger(Logger::getLogger("HubDB.Buffer.DBMyBufferMgr"));
 
@@ -23,7 +24,8 @@ extern "C" void *createDBMyBufferMgr(int nArgs, va_list ap);
  * @param cnt Anzahl der Blöcke im Buffer
  */
 DBMyBufferMgr::DBMyBufferMgr(bool doThreading, int cnt) :
-        DBBufferMgr(doThreading, cnt) {
+        DBBufferMgr(doThreading, cnt),
+        m_unfixedList(){
   if (logger != NULL) LOG4CXX_INFO(logger, "DBMyBufferMgr()");
 
   // TODO Code hier einfügen
@@ -105,6 +107,20 @@ void DBMyBufferMgr::unfixBlock(DBBCB &bcb) {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
+    bcb.unlock(); // unlock (however, there can be multiple locks by different threads)
+    int i = findBlock(&bcb);
+
+    // dirty and unlocked blocks can be freed
+    if (bcb.getDirty()) {
+        delete bcbList[i];
+        bcbList[i] = NULL;  // discard block
+        freeFrame(i);  // the i-th block is freed
+    } else if (bcb.isUnlocked()) {
+        freeFrame(i);  // the i-th block is freed
+        //pop from the end to find a block to replace
+        m_unfixedList.push_front(i);
+    }
+
   //throw DBException("unfixBlock() not implemented");
 
 }
@@ -123,6 +139,10 @@ bool DBMyBufferMgr::isBlockOfFileOpen(DBFile &file) const {
   LOG4CXX_DEBUG(logger, "this:\n" + toString("\t"));
 
   // TODO Code hier einfügen
+}
+
+
+
   throw DBException("isBlockOfFileOpen() not implemented");
 
 }
@@ -152,6 +172,13 @@ int DBMyBufferMgr::registerClass() {
   // Register as 'DBMyBufferMgr'
   setClassForName("DBMyBufferMgr", createDBMyBufferMgr);
   return 0;
+}
+
+void DBMyBufferMgr::showlist(list<int> g) {
+    list <int> :: iterator it;
+    for(it = g.begin(); it != g.end(); ++it)
+        cout << '\t' << *it;
+    cout << '\n';
 }
 
 /**
