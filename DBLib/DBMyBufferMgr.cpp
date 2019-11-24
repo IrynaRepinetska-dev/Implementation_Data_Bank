@@ -31,20 +31,12 @@ DBMyBufferMgr::DBMyBufferMgr(bool doThreading, int cnt) :
 
   // TODO Code hier einfügen
     // Array of DBBCB pointers
-    bcbList = new DBBCB *[maxBlockCnt];
+    bcbList = new block *[maxBlockCnt];
     for (int i = 0; i < maxBlockCnt; i++) {
-        bcbList[i] = NULL; // initialized by NULL
-    }
-    mapSize = cnt / sizeof(int) + 1;
-    bitMap = new int[mapSize]; // use a bitmap to memorize free blocks
+        bcbList[i] = new block(); // initialized by NULL and all Blocks are unused
 
-    for (int i = 0; i < mapSize; ++i) {
-        bitMap[i] = 0;
-    }
 
-    // initially : all blocks are free
-    for (int i = 0; i < cnt; ++i) {
-        freeFrame(i);
+
     }
 
 
@@ -61,17 +53,15 @@ DBMyBufferMgr::~DBMyBufferMgr() {
   // TODO Code hier einfügen
     if (bcbList != NULL) {
         for (int i = 0; i < maxBlockCnt; ++i) {
-            if (bcbList[i] != NULL) {
+            if (bcbList[i]->bcbBlock != NULL) {
                 try {
-                    flushBCBBlock(*bcbList[i]);
+                    flushBCBBlock(*(bcbList[i]->bcbBlock));
                 } catch (DBException &e) {}
                 delete bcbList[i];
+
             }
         }
         delete[] bcbList;
-        //delete m_unfixedList??
-        delete[] bitMap;
-
         m_unfixedList.~list();
     }
 
@@ -133,7 +123,7 @@ DBBCB * DBMyBufferMgr::fixBlock(
 
         // now, free the first free block
         for (i = 0; i < maxBlockCnt; ++i) {
-            if (bcbList[i]== NULL) {// searches the first free frame in Buffer
+            if (bcbList[i]->bcbBlock == NULL) {// searches the first free frame in Buffer
                 break;
             }
         }
@@ -142,7 +132,7 @@ DBBCB * DBMyBufferMgr::fixBlock(
 
             // Verdraenungsstrategie LRU:
             if(m_unfixedList.empty()){
-                throw DBBufferMgrException("there are no fixed Blocks ");
+                throw DBBufferMgrException("there are no unfixed Blocks ");
             }
             // Find index of the unfixed Block to replace --> save in i
             i = m_unfixedList.back();
@@ -150,30 +140,30 @@ DBBCB * DBMyBufferMgr::fixBlock(
             m_unfixedList.pop_back();
            // flush the old block to disk
             // dirty blocks are not flushed -> UNDO
-            if (!bcbList[i]->getDirty()) {
-                flushBCBBlock(*bcbList[i]);
+            DBBCB *tmp =bcbList[i]->bcbBlock;
+            if (!tmp->getDirty()) {
+                flushBCBBlock(*tmp);
             }
-            delete bcbList[i];
+            delete tmp;
+            bcbList[i]->free = false;
             // the i-th block is reserved
-            //reserveFrame(i);
+
 
         }
 
-        bcbList[i] = new DBBCB(file, blockNo);
+        bcbList[i]->bcbBlock = new DBBCB(file, blockNo);
         if (read) { // read block from disk
-            fileMgr.readFileBlock(bcbList[i]->getFileBlock());
+            DBBCB *tmp = bcbList[i]->bcbBlock;
+            fileMgr.readFileBlock(tmp->getFileBlock());
         }
     }
 
-    DBBCB *rc = bcbList[i];
+    DBBCB *rc = bcbList[i]->bcbBlock;
     if (!rc->grantAccess(mode)) { // no access given, e.g. try to access EXCLUSIVE block
         rc = NULL;
     } else {
-       // if (isFreeFrame(i)){
-          //  reserveFrame(i); // the i-th block is reserved
-            m_unfixedList.remove(i);
-        //}
-
+          bcbList[i]->free = false;
+          m_unfixedList.remove(i);
     }
 
     LOG4CXX_DEBUG(logger, "rc: " + TO_STR(rc));
@@ -202,14 +192,15 @@ void DBMyBufferMgr::unfixBlock(DBBCB &bcb) {
 
     // dirty and unlocked blocks can be freed
     if (bcb.getDirty()) {
-        delete bcbList[i];
-        bcbList[i] = NULL;  // discard block
-        freeFrame(i);  // the i-th block is freed
+        delete bcbList[i]->bcbBlock;
+        bcbList[i]->free = true;
+        bcbList[i]->bcbBlock = NULL;  // discard block
         m_unfixedList.remove(i);
+
     } else if (bcb.isUnlocked()) {
-        freeFrame(i);
+        bcbList[i]->free = true;
         // the i-th block is freed
-        //pop from the end to find a block to replace
+        //add a new unfixed Block in the list
         m_unfixedList.push_front(i);
     }
 
@@ -234,8 +225,9 @@ bool DBMyBufferMgr::isBlockOfFileOpen(DBFile &file) const {
 
     for (int i = 0; i < maxBlockCnt; ++i) {
         // test if the file is open, e.g. any block of the file was read into the buffer
-        if (bcbList[i] != NULL
-            && bcbList[i]->getFileBlock() == file) {
+        DBBCB *tmp=bcbList[i]->bcbBlock;
+        if (tmp != NULL
+            && tmp->getFileBlock() == file) {
             LOG4CXX_DEBUG(logger, "rc: true");
             return true;
         }
@@ -263,19 +255,19 @@ void DBMyBufferMgr::closeAllOpenBlocks(DBFile &file) {
 
   // TODO Code hier einfügen
     for (int i = 0; i < maxBlockCnt; ++i) {
+        DBBCB *tmp=bcbList[i]->bcbBlock;
         // write unlocked blocks to disk
-        if (bcbList[i] != NULL && bcbList[i]->getFileBlock() == file) {
-            if (!bcbList[i]->isUnlocked()) {
+        if (tmp != NULL && tmp->getFileBlock() == file) {
+            if (!tmp->isUnlocked()) {
                 throw DBBufferMgrException("can not close fileblock because it is still locked");
             }
             else {
-                if (!bcbList[i]->getDirty()) {
-                    flushBCBBlock(*bcbList[i]); // flush to disk
+                if (!tmp->getDirty()) {
+                    flushBCBBlock(*tmp); // flush to disk
                 }
-                delete bcbList[i];
-                bcbList[i] = NULL;
+                delete tmp;
+                bcbList[i]->bcbBlock = NULL;
                 m_unfixedList.remove(i);
-                freeFrame(i); // the i-th block is freed
             }
         }
     }
@@ -317,11 +309,13 @@ int DBMyBufferMgr::findBlock(DBFile &file, BlockNo blockNo) {
     LOG4CXX_INFO(logger, "findBlock()");
     int pos = -1;
     // search if the block was read into the buffer
+    DBBCB *tmp;
     for (int i = 0; pos == -1 && i < maxBlockCnt; ++i) {
-        if (bcbList[i] != NULL &&
-            bcbList[i]->getFileBlock() == file &&
-            bcbList[i]->getFileBlock().getBlockNo() == blockNo) {
-            pos = i; // block was found at position i
+        tmp =bcbList[i]->bcbBlock;
+        if ( tmp!= NULL &&
+             tmp->getFileBlock() == file &&
+             tmp->getFileBlock().getBlockNo() == blockNo) {
+             pos = i; // block was found at position i
         }
     }
     LOG4CXX_DEBUG(logger, "pos: " + TO_STR(pos));
@@ -341,24 +335,13 @@ int DBMyBufferMgr::findBlock(DBBCB *bcb) {
 
     // returns the position of the block
     for (int i = 0; pos == -1 && i < maxBlockCnt; ++i) {
-        if (bcbList[i] == bcb) {
+        if (bcbList[i]->bcbBlock == bcb) {
             pos = i;
         }
     }
     LOG4CXX_DEBUG(logger, "pos: " + TO_STR(pos));
     return pos;
 }
-
-void DBMyBufferMgr::showlist(list<int> g) {
-    list <int> :: iterator it;
-    for(it = g.begin(); it != g.end(); ++it)
-        cout << '\t' << *it;
-    cout << '\n';
-}
-
-void DBMyBufferMgr::freeFrame(int i){ bitMap[i / sizeof(int)] |= (1 << (i % sizeof(int)));}
-void DBMyBufferMgr::reserveFrame(int i){ bitMap[i / sizeof(int)] &= (~(1 << (i % sizeof(int))));}
-bool DBMyBufferMgr::isFreeFrame(int i){ return (bitMap[i / sizeof(int)] & (1 << (i % sizeof(int)))) != 0 ? true : false;}
 
 /**
  * Wird aufgerufen von HubDB::Types::getClassForName von DBTypes, um DBIndex zu erstellen
